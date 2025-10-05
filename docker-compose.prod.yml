@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mymoni-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://mymoni:mymoni_secure_2025@db:5432/mymoni
+      - NEXT_PUBLIC_APP_URL=http://173.249.0.204
+      - TZ=Europe/Paris
+      - LLM_PROVIDER=gemini
+      - LLM_MODEL=gemini-2.5-flash
+      - GEMINI_API_KEY=AIzaSyBLaSLaib4SpnFvxkM31GxAUNsb0SUVeoc
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - mymoni-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: mymoni-db
+    environment:
+      - POSTGRES_DB=mymoni
+      - POSTGRES_USER=mymoni
+      - POSTGRES_PASSWORD=mymoni_secure_2025
+      - TZ=Europe/Paris
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mymoni"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mymoni-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: mymoni-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - mymoni-network
+
+networks:
+  mymoni-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

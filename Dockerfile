@@ -1,4 +1,4 @@
-# Dockerfile for SubSensei - Production Build
+# Dockerfile for Mymoni - Production Build
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
