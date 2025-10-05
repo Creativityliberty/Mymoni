@@ -1,0 +1,156 @@
+// Prisma Schema for SubSensei
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum SubStatus {
+  ACTIVE
+  WATCH
+  TO_CANCEL
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+  CUSTOM
+}
+
+enum AlertType {
+  RENEWAL
+  TRIAL
+  SPIKE
+  CARD_EXPIRY
+}
+
+enum Severity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(VIEWER)
+  members   Member[]
+  createdAt DateTime @default(now())
+}
+
+model Workspace {
+  id        String         @id @default(cuid())
+  name      String
+  currency  String         @default("EUR")
+  members   Member[]
+  subs      Subscription[]
+  events    Event[]
+  createdAt DateTime       @default(now())
+}
+
+model Member {
+  userId      String
+  workspaceId String
+  role        Role      @default(EDITOR)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Subscription {
+  id              String        @id @default(cuid())
+  workspaceId     String
+  serviceName     String
+  vendor          String?
+  category        String?
+  plan            String?
+  status          SubStatus     @default(ACTIVE)
+  costAmount      Decimal       @db.Decimal(10, 2)
+  costCurrency    String        @default("EUR")
+  billingPeriod   BillingPeriod
+  monthlyEq       Decimal       @db.Decimal(10, 2)
+  startDate       DateTime?
+  nextRenewalDate DateTime?
+  trialEndDate    DateTime?
+  paymentHint     String?
+  owner           String?
+  tags            Json?
+  notes           String?
+  invoices        Invoice[]
+  alerts          Alert[]
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([workspaceId])
+  @@index([nextRenewalDate])
+  @@index([trialEndDate])
+  @@index([status])
+}
+
+model Invoice {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  fileUrl        String
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  issuedAt       DateTime?
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+}
+
+model Alert {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  type           AlertType
+  severity       Severity     @default(WARNING)
+  dueAt          DateTime
+  resolvedAt     DateTime?
+  snoozedUntil   DateTime?
+  payload        Json?
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+  @@index([dueAt])
+  @@index([resolvedAt])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  workspaceId String
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String?
+  payload     Json?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([createdAt])
+}
