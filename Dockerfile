@@ -1,12 +1,12 @@
 # Dockerfile for Mymoni - Production Build
 
 # Stage 1: Dependencies
-FROM node:20-slim AS deps
+FROM node:20-bullseye-slim AS deps
 WORKDIR /app
 
-# Install OpenSSL 1.1 (required by Prisma)
+# Install OpenSSL 1.1 and other required libraries
 RUN apt-get update -y && \
-    apt-get install -y openssl libssl-dev && \
+    apt-get install -y openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Install ALL dependencies (including dev dependencies needed for build)
@@ -14,33 +14,29 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 # Stage 2: Builder
-FROM node:20-slim AS builder
+FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 
-# Install OpenSSL 1.1 (required by Prisma)
+# Install OpenSSL 1.1 and other required libraries
 RUN apt-get update -y && \
-    apt-get install -y openssl libssl-dev && \
+    apt-get install -y openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Build Next.js (without database connection)
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 RUN npm run build
 
 # Stage 3: Runner
-FROM node:20-slim AS runner
+FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 
-# Install OpenSSL 1.1 (required by Prisma at runtime)
+# Install OpenSSL 1.1 and other required libraries
 RUN apt-get update -y && \
-    apt-get install -y openssl libssl-dev && \
+    apt-get install -y openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
@@ -48,8 +44,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV TZ=Europe/Paris
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 nextjs
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
