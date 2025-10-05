@@ -1,22 +1,32 @@
 # Dockerfile for Mymoni - Production Build
 
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
+
+# Install OpenSSL 1.1 (required by Prisma)
+RUN apt-get update -y && \
+    apt-get install -y openssl libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install ALL dependencies (including dev dependencies needed for build)
 COPY package.json package-lock.json* ./
 RUN npm ci
 
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
+
+# Install OpenSSL 1.1 (required by Prisma)
+RUN apt-get update -y && \
+    apt-get install -y openssl libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client (but don't connect to DB)
+# Generate Prisma Client
 RUN npx prisma generate
 
 # Build Next.js (without database connection)
@@ -25,8 +35,13 @@ ENV SKIP_ENV_VALIDATION=1
 RUN npm run build
 
 # Stage 3: Runner
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
+
+# Install OpenSSL 1.1 (required by Prisma at runtime)
+RUN apt-get update -y && \
+    apt-get install -y openssl libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
