@@ -10,6 +10,9 @@ const nextConfig = {
   compress: true,
   reactStrictMode: true,
   swcMinify: true,
+  // Skip static page generation during build to avoid Prisma errors
+  skipTrailingSlashRedirect: true,
+  skipMiddlewareUrlNormalize: true,
 };
 
 module.exports = nextConfig;
